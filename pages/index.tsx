@@ -11,11 +11,22 @@ export default function Home() {
     setLoading(true);
     setResult('');
 
-    // Platzhalter für späteren API-Aufruf
-    setTimeout(() => {
-      setResult('🚗 Preisbewertung wird bald hier angezeigt.');
-      setLoading(false);
-    }, 1500);
+    try {
+      const res = await fetch('/api/analyse', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url }),
+      });
+
+      const data = await res.json();
+      setResult(data.message || 'Keine Daten erhalten.');
+    } catch (error) {
+      setResult('Fehler beim Abrufen der Daten.');
+    }
+
+    setLoading(false);
   };
 
   return (
@@ -40,7 +51,7 @@ export default function Home() {
       </form>
 
       {result && (
-        <div className="mt-6 bg-white p-4 rounded shadow max-w-xl w-full text-center">
+        <div className="mt-6 bg-white p-4 rounded shadow max-w-xl w-full whitespace-pre-wrap">
           {result}
         </div>
       )}
