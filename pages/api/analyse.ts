@@ -1,60 +1,29 @@
-// pages/index.tsx
-import { useState } from 'react';
+// pages/api/analyse.ts
+import type { NextApiRequest, NextApiResponse } from 'next';
+import * as cheerio from 'cheerio';
 
-export default function Home() {
-  const [url, setUrl] = useState('');
-  const [result, setResult] = useState('');
-  const [loading, setLoading] = useState(false);
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  const { url } = req.body;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setResult('');
+  if (!url || !url.includes('autoscout24.ch')) {
+    return res.status(400).json({ message: 'Ungültiger Link. Nur AutoScout24.ch wird unterstützt.' });
+  }
 
-    try {
-      const res = await fetch('/api/analyse', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ url }),
-      });
+  try {
+    const response = await fetch(url);
+    const html = await response.text();
+    const $ = cheerio.load(html);
 
-      const data = await res.json();
-      setResult(data.message || 'Keine Daten gefunden.');
-    } catch (error) {
-      setResult('Fehler beim Abrufen der Daten.');
-    }
+    // Daten aus der AutoScout24-Seite auslesen
+    const title = $('h1').first().text().trim();
+    const price = $('[data-testid="vehicle-price"]').first().text().trim();
+    const km = $('dt:contains("Kilometer")').next().text().trim();
+    const firstReg = $('dt:contains("Erstzulassung")').next().text().trim();
 
-    setLoading(false);
-  };
-
-  return (
-    <main className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
-      <h1 className="text-3xl font-bold mb-6">PreisRadar</h1>
-      <form onSubmit={handleSubmit} className="w-full max-w-xl bg-white p-6 rounded-xl shadow">
-        <label className="block mb-2 font-medium">AutoScout24-Link eingeben:</label>
-        <input
-          type="url"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://www.autoscout24.ch/..."
-          required
-          className="w-full border border-gray-300 rounded p-2 mb-4"
-        />
-        <button
-          type="submit"
-          className="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700"
-        >
-          {loading ? 'Wird überprüft...' : 'Jetzt überprüfen'}
-        </button>
-      </form>
-
-      {result && (
-        <div className="mt-6 bg-white p-4 rounded shadow max-w-xl w-full text-center">
-          {result}
-        </div>
-      )}
-    </main>
-  );
+    return res.status(200).json({
+      message: `📄 Fahrzeugdaten gefunden:\n\nTitel: ${title}\nPreis: ${price}\nKilometer: ${km}\nErstzulassung: ${firstReg}`
+    });
+  } catch (error) {
+    return res.status(500).json({ message: 'Fehler beim Analysieren des Links.' });
+  }
 }
